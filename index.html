@@ -105,7 +105,7 @@
 
     const grid = document.getElementById('grid');
     const tpl = document.getElementById('card-template');
-    let zones = JSON.parse(localStorage.getItem('zones_v1')) || defaults.slice(0, 12);
+    let zones = JSON.parse(localStorage.getItem('zones_v1')) || defaults.slice(0, 35);
 
     function save(){ localStorage.setItem('zones_v1', JSON.stringify(zones)); }
 
