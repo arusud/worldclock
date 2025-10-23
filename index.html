@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>World Clock — Day & Night</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html,body,#app{height:100%}
+    .card-day{background: linear-gradient(135deg, #fff7c2 0%, #a8d0ff 100%);} /* warm day */
+    .card-night{background: linear-gradient(135deg, #0f172a 0%, #42275a 100%); color: #e6eef8;} /* cool night */
+    .sun{filter: drop-shadow(0 6px 12px rgba(255,165,0,0.15));}
+    .moon{opacity:0.9;}
+  </style>
+</head>
+<body class="bg-slate-50 p-6">
+  <div id="app" class="max-w-7xl mx-auto">
+    <header class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-semibold">World Clock — Day & Night</h1>
+        <p class="text-sm text-slate-600">See multiple countries' current time at once; cards change color for day/night and update live.</p>
+      </div>
+      <div class="flex gap-2 items-center">
+        <input id="tz-input" placeholder="Add timezone (IANA) e.g. Europe/London" class="px-3 py-2 border rounded w-72" />
+        <button id="add-btn" class="px-3 py-2 bg-blue-600 text-white rounded">Add</button>
+      </div>
+    </header>
+
+    <div class="mb-4 flex gap-3 items-center">
+      <label class="text-sm text-slate-600">Filter:</label>
+      <input id="filter" placeholder="Search country or tz" class="px-3 py-2 border rounded w-64" />
+      <button id="reset" class="px-3 py-2 border rounded">Reset</button>
+    </div>
+
+    <main>
+      <div id="grid" class="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"></div>
+    </main>
+
+    <footer class="mt-6 text-sm text-slate-500">Times are shown using the browser's clock & the IANA timezone database. Day/night is estimated by local hour (6:00–17:59 = day).</footer>
+  </div>
+
+  <template id="card-template">
+    <article class="p-4 rounded-2xl shadow-md flex items-center gap-4">
+      <div class="flex-shrink-0 text-3xl">🌍</div>
+      <div class="flex-1">
+        <div class="flex items-baseline justify-between">
+          <div>
+            <div class="text-lg font-medium name">Country</div>
+            <div class="text-xs tz text-slate-500">Timezone</div>
+          </div>
+          <div class="text-right">
+            <div class="text-3xl font-mono time">00:00:00</div>
+            <div class="text-xs date text-slate-600">Mon 1 Jan</div>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center justify-between">
+          <div class="text-sm condition">Day</div>
+          <div class="flex gap-2 items-center">
+            <button class="remove-btn px-2 py-1 text-xs border rounded">Remove</button>
+          </div>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script>
+    // Default list of countries/timezones (IANA)
+    const defaults = [
+      {name: 'India', tz: 'Asia/Kolkata', flag: '🇮🇳'},
+      {name: 'United States (New York)', tz: 'America/New_York', flag: '🇺🇸'},
+      {name: 'United Kingdom', tz: 'Europe/London', flag: '🇬🇧'},
+      {name: 'Japan', tz: 'Asia/Tokyo', flag: '🇯🇵'},
+      {name: 'Australia (Sydney)', tz: 'Australia/Sydney', flag: '🇦🇺'},
+      {name: 'Brazil (Sao Paulo)', tz: 'America/Sao_Paulo', flag: '🇧🇷'},
+      {name: 'Russia (Moscow)', tz: 'Europe/Moscow', flag: '🇷🇺'},
+      {name: 'China', tz: 'Asia/Shanghai', flag: '🇨🇳'},
+      {name: 'UAE (Dubai)', tz: 'Asia/Dubai', flag: '🇦🇪'},
+      {name: 'South Africa', tz: 'Africa/Johannesburg', flag: '🇿🇦'},
+      {name: 'Mexico City', tz: 'America/Mexico_City', flag: '🇲🇽'},
+      {name: 'Canada (Toronto)', tz: 'America/Toronto', flag: '🇨🇦'},
+      {name: 'Germany', tz: 'Europe/Berlin', flag: '🇩🇪'},
+      {name: 'France', tz: 'Europe/Paris', flag: '🇫🇷'},
+      {name: 'Argentina', tz: 'America/Argentina/Buenos_Aires', flag: '🇦🇷'},
+      {name: 'New Zealand (Auckland)', tz: 'Pacific/Auckland', flag: '🇳🇿'},
+      {name: 'Indonesia (Jakarta)', tz: 'Asia/Jakarta', flag: '🇮🇩'},
+      {name: 'Saudi Arabia', tz: 'Asia/Riyadh', flag: '🇸🇦'},
+      {name: 'Singapore', tz: 'Asia/Singapore', flag: '🇸🇬'},
+      {name: 'Egypt', tz: 'Africa/Cairo', flag: '🇪🇬'}
+    ];
+
+    const grid = document.getElementById('grid');
+    const tpl = document.getElementById('card-template');
+    let zones = JSON.parse(localStorage.getItem('zones_v1')) || defaults.slice(0, 12);
+
+    function save(){ localStorage.setItem('zones_v1', JSON.stringify(zones)); }
+
+    function makeCard(entry){
+      const node = tpl.content.cloneNode(true);
+      const article = node.querySelector('article');
+      const name = node.querySelector('.name');
+      const tz = node.querySelector('.tz');
+      const timeEl = node.querySelector('.time');
+      const dateEl = node.querySelector('.date');
+      const cond = node.querySelector('.condition');
+      const flag = node.querySelector('.flex-shrink-0');
+      const removeBtn = node.querySelector('.remove-btn');
+
+      name.textContent = entry.name;
+      tz.textContent = entry.tz;
+      flag.textContent = entry.flag || '🌍';
+
+      removeBtn.addEventListener('click', ()=>{
+        zones = zones.filter(z=>z.tz !== entry.tz);
+        save();
+        render();
+      });
+
+      // store references for updating
+      return {article, timeEl, dateEl, cond, tz: entry.tz};
+    }
+
+    function render(filter = ''){
+      grid.innerHTML = '';
+      const fragment = document.createDocumentFragment();
+      const list = zones.filter(z=> (z.name + ' ' + z.tz).toLowerCase().includes(filter.toLowerCase()));
+      list.forEach(z=>{
+        const c = makeCard(z);
+        // set initial styles on article
+        fragment.appendChild(c.article);
+        // attach dataset for lookup
+        c.article.dataset.tz = z.tz;
+      });
+      grid.appendChild(fragment);
+      updateAll();
+    }
+
+    function updateAll(){
+      const articles = Array.from(grid.querySelectorAll('article'));
+      const now = new Date();
+      articles.forEach(article => {
+        const tz = article.dataset.tz;
+        try{
+          // Format time for timezone
+          const time = new Intl.DateTimeFormat([], {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false, timeZone: tz}).format(now);
+          const date = new Intl.DateTimeFormat([], {weekday:'short', day:'numeric', month:'short', year:'numeric', timeZone: tz}).format(now);
+          const hour = parseInt(new Intl.DateTimeFormat([], {hour:'2-digit', hour12:false, timeZone: tz}).format(now),10);
+          const condition = (hour >= 6 && hour < 18) ? 'Day' : 'Night';
+
+          article.querySelector('.time').textContent = time;
+          article.querySelector('.date').textContent = date;
+          article.querySelector('.condition').textContent = condition;
+
+          // set day/night class
+          if(condition === 'Day'){
+            article.classList.remove('card-night');
+            article.classList.add('card-day');
+            article.style.color = '';
+          } else {
+            article.classList.remove('card-day');
+            article.classList.add('card-night');
+          }
+        }catch(e){
+          article.querySelector('.time').textContent = 'Invalid TZ';
+          article.querySelector('.date').textContent = tz;
+        }
+      });
+    }
+
+    // update every second
+    setInterval(updateAll, 1000);
+
+    // wire add
+    document.getElementById('add-btn').addEventListener('click', ()=>{
+      const input = document.getElementById('tz-input');
+      const val = input.value.trim();
+      if(!val) return;
+      // try to validate by formatting date
+      try{
+        new Intl.DateTimeFormat([], {timeZone: val}).format();
+      }catch(e){
+        alert('Invalid IANA timezone. Example: Europe/London or America/New_York');
+        return;
+      }
+      const exists = zones.some(z=>z.tz === val);
+      if(exists){ alert('Timezone already added'); input.value=''; return; }
+      zones.push({name: val.split('/').slice(-1).join(' ').replace('_',' '), tz: val, flag: '🌐'});
+      save();
+      input.value='';
+      render(document.getElementById('filter').value || '');
+    });
+
+    document.getElementById('filter').addEventListener('input', (e)=>{
+      render(e.target.value);
+    });
+    document.getElementById('reset').addEventListener('click', ()=>{ zones = defaults.slice(0,12); save(); render(); });
+
+    // initial render
+    render();
+
+    // keyboard: enter to add
+    document.getElementById('tz-input').addEventListener('keydown', (e)=>{ if(e.key==='Enter') document.getElementById('add-btn').click(); });
+  </script>
+</body>
+</html>
