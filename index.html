@@ -209,7 +209,7 @@
     document.getElementById('filter').addEventListener('input', (e)=>{
       render(e.target.value);
     });
-    document.getElementById('reset').addEventListener('click', ()=>{ zones = defaults.slice(0,12); save(); render(); });
+    document.getElementById('reset').addEventListener('click', ()=>{ zones = defaults.slice(0,35); save(); render(); });
 
     // initial render
     render();
